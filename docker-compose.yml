@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    volumes:
+      - ./backend:/app
+    networks:
+      - iot-net
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    networks:
+      - iot-net
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: iotdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - iot-net
+
+  emqx:
+    image: emqx/emqx:5.5.0
+    container_name: emqx
+    ports:
+      - "1883:1883"
+      - "8083:8083"
+      - "18083:18083"
+    networks:
+      - iot-net
+
+  mqtt-listener:                # 👈 ahora está correctamente alineado
+    build: ./mqtt-listener
+    depends_on:
+      - backend
+      - emqx
+    networks:
+      - iot-net
+
+networks:
+  iot-net:
+
+volumes:
+  postgres_data:

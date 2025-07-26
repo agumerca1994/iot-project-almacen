@@ -17,14 +17,14 @@ def obtener_device_por_id(id_GlobalDevice: int, db: Session = Depends(get_db)):
     return device
 
 @router.get("/serial/{serial_number}", response_model=schemas.GlobalDevice)
-def obtener_device_por_serial(serial_number: int, db: Session = Depends(get_db)):
+def obtener_device_por_serial(serial_number: str, db: Session = Depends(get_db)):
     device = crud.get_global_device_by_serial(db, serial_number)
     if not device:
         raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
     return device
 
 @router.put("/serial/{serial_number}", response_model=schemas.GlobalDevice)
-def actualizar_device_por_serial(serial_number: int, data: schemas.GlobalDeviceUpdate, db: Session = Depends(get_db)):
+def actualizar_device_por_serial(serial_number: str, data: schemas.GlobalDeviceUpdate, db: Session = Depends(get_db)):
     updated = crud.update_global_device_by_serial(db, serial_number, data)
     if not updated:
         raise HTTPException(status_code=404, detail="Dispositivo no encontrado")

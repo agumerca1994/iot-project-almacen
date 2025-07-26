@@ -75,7 +75,7 @@ class PantryContent(PantryContentBase):
 # ---------- GLOBAL DEVICES ----------
 
 class GlobalDeviceBase(BaseModel):
-    serial_number: int
+    serial_number: str
     password: str
     estado: str
     firmware_version: str
@@ -97,3 +97,6 @@ class GlobalDevice(GlobalDeviceBase):
 
     class Config:
         from_attributes = True
+
+
+

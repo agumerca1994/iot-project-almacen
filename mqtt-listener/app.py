@@ -49,33 +49,79 @@ def on_message(client, userdata, msg):
                 print(f"❌ Error al actualizar alacena: {response.status_code} - {response.text}")
 
         elif msg.topic == MQTT_TOPIC_GLOBAL_DEVICE:
-            print("🔄 Registrando nuevo dispositivo global...")
-            response = requests.post(f"{API_BASE_URL}/global-devices", json=payload)
+            print("🔄 Registro o actualización de dispositivo global...")
 
-            if response.status_code == 200:
-                print("✅ Dispositivo global registrado correctamente")
-            else:
-                print(f"❌ Error al registrar global_device: {response.status_code} - {response.text}")
-                print("📦 Payload enviado:", payload)
-
-        elif msg.topic == MQTT_TOPIC_GLOBAL_DEVICE_UPDATE:
-            print("🔄 Actualizando datos de dispositivo global...")
-
-            serial_number = payload.get("serial_number")
+            serial_number = payload.get("sn")
             if not serial_number:
                 print("❌ No se especificó serial_number en el mensaje")
                 return
 
+            mapped_payload = {
+                "serial_number": serial_number,
+                "password": payload.get("password"),
+                "estado": payload.get("estado"),
+                "firmware_version": payload.get("vfirmware"),
+                "uptime_seconds": payload.get("uptime"),
+                "ip_address": payload.get("ipadd"),
+                "mac_address": payload.get("macadd"),
+                "wifi_ssid": payload.get("ssid"),
+                "rssi": payload.get("rssi"),
+                "user_assignament": payload.get("user_id", "")
+            }
+
+            # Intentar obtener el dispositivo
+            get_response = requests.get(f"{API_BASE_URL}/global-devices/serial/{serial_number}")
+
+            if get_response.status_code == 200:
+                print("📦 Dispositivo ya existe → actualizando...")
+                response = requests.put(
+                    f"{API_BASE_URL}/global-devices/serial/{serial_number}",
+                    json=mapped_payload
+                )
+            else:
+                print("🆕 Dispositivo no existe → creando...")
+                response = requests.post(f"{API_BASE_URL}/global-devices/", json=mapped_payload)
+
+            if response.status_code == 200:
+                print("✅ Dispositivo global registrado o actualizado correctamente")
+            else:
+                print(f"❌ Error en operación con global_device: {response.status_code} - {response.text}")
+                print("📤 Payload enviado:", json.dumps(mapped_payload, indent=2))
+
+        elif msg.topic == MQTT_TOPIC_GLOBAL_DEVICE_UPDATE:
+            print("🔄 Actualizando datos de dispositivo global...")
+
+            serial_number = payload.get("sn")
+            if not serial_number:
+                print("❌ No se especificó serial_number en el mensaje")
+                return
+
+            mapped_payload = {
+                "serial_number": serial_number,
+                "password": payload.get("password"),
+                "estado": payload.get("estado"),
+                "firmware_version": payload.get("vfirmware"),
+                "uptime_seconds": payload.get("uptime"),
+                "ip_address": payload.get("ipadd"),
+                "mac_address": payload.get("macadd"),
+                "wifi_ssid": payload.get("ssid"),
+                "rssi": payload.get("rssi"),
+                "user_assignament": payload.get("user_id", "")
+            }
+
+            print("📤 Enviando payload actualizado:")
+            print(json.dumps(mapped_payload, indent=2))
+
             response = requests.put(
-                f"{API_BASE_URL}/global-devices/{serial_number}",
-                json=payload
+                f"{API_BASE_URL}/global-devices/serial/{serial_number}",
+                json=mapped_payload
             )
 
             if response.status_code == 200:
                 print("✅ Dispositivo global actualizado correctamente")
             else:
                 print(f"❌ Error al actualizar global_device: {response.status_code} - {response.text}")
-                print("📦 Payload enviado:", payload)
+                print("📦 Payload enviado:", json.dumps(mapped_payload, indent=2))
 
     except Exception as e:
         print("❌ Error procesando mensaje:", e)

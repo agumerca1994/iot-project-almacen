@@ -1,0 +1,12 @@
+Acceso a BD desde terminal
+docker exec -it 742da81f6e275d413adfcefb03d4a91f1e3cd978ba2894674b9045e57de3c463 psql -U postgres -d iotdb
+\dt
+DROP TABLE global_devices;
+\q
+
+
+{
+  "product_id": 1,
+  "estado": "asignado",
+  "user_id": 2
+}

@@ -23,12 +23,13 @@ def obtener_device_por_serial(serial_number: int, db: Session = Depends(get_db))
         raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
     return device
 
-@router.put("/{id_GlobalDevice}", response_model=schemas.GlobalDevice)
-def actualizar_device(id_GlobalDevice: int, data: schemas.GlobalDeviceUpdate, db: Session = Depends(get_db)):
-    updated = crud.update_global_device(db, id_GlobalDevice, data)
+@router.put("/serial/{serial_number}", response_model=schemas.GlobalDevice)
+def actualizar_device_por_serial(serial_number: int, data: schemas.GlobalDeviceUpdate, db: Session = Depends(get_db)):
+    updated = crud.update_global_device_by_serial(db, serial_number, data)
     if not updated:
         raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
     return updated
+
 
 @router.delete("/{id_GlobalDevice}")
 def eliminar_device(id_GlobalDevice: int, db: Session = Depends(get_db)):

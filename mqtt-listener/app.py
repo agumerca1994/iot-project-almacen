@@ -8,6 +8,7 @@ MQTT_BROKER = "emqx"
 MQTT_PORT = 1883
 MQTT_TOPIC = "iot/lecturas"
 MQTT_TOPIC_GLOBAL_DEVICE = "iot/dispositivos"
+MQTT_TOPIC_GLOBAL_DEVICE_UPDATE = "iot/global-device-update"
 API_BASE_URL = "http://backend:8000"
 
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -17,6 +18,8 @@ def on_connect(client, userdata, flags, rc, properties=None):
         print(f"📡 Suscripto al topic {MQTT_TOPIC}")
         client.subscribe(MQTT_TOPIC_GLOBAL_DEVICE)
         print(f"📡 Suscripto al topic {MQTT_TOPIC_GLOBAL_DEVICE}")
+        client.subscribe(MQTT_TOPIC_GLOBAL_DEVICE_UPDATE)
+        print(f"📡 Suscripto al topic {MQTT_TOPIC_GLOBAL_DEVICE_UPDATE}")
     else:
         print(f"❌ Falló la conexión al broker, código: {rc}")
 
@@ -47,13 +50,31 @@ def on_message(client, userdata, msg):
 
         elif msg.topic == MQTT_TOPIC_GLOBAL_DEVICE:
             print("🔄 Registrando nuevo dispositivo global...")
-
             response = requests.post(f"{API_BASE_URL}/global-devices", json=payload)
 
             if response.status_code == 200:
                 print("✅ Dispositivo global registrado correctamente")
             else:
                 print(f"❌ Error al registrar global_device: {response.status_code} - {response.text}")
+                print("📦 Payload enviado:", payload)
+
+        elif msg.topic == MQTT_TOPIC_GLOBAL_DEVICE_UPDATE:
+            print("🔄 Actualizando datos de dispositivo global...")
+
+            serial_number = payload.get("serial_number")
+            if not serial_number:
+                print("❌ No se especificó serial_number en el mensaje")
+                return
+
+            response = requests.put(
+                f"{API_BASE_URL}/global-devices/{serial_number}",
+                json=payload
+            )
+
+            if response.status_code == 200:
+                print("✅ Dispositivo global actualizado correctamente")
+            else:
+                print(f"❌ Error al actualizar global_device: {response.status_code} - {response.text}")
                 print("📦 Payload enviado:", payload)
 
     except Exception as e:

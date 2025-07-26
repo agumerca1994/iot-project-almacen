@@ -84,6 +84,7 @@ class GlobalDeviceBase(BaseModel):
     mac_address: str
     wifi_ssid: str
     rssi: int
+    user_assignament: str = ""  # ✅ NUEVO CAMPO OPCIONAL (puede venir vacío)
 
 class GlobalDeviceCreate(GlobalDeviceBase):
     pass  # No se incluye el ID aquí

@@ -101,8 +101,8 @@ def delete_global_device(db: Session, id_GlobalDevice: int):
         return True
     return False
 
-def update_global_device(db: Session, id_GlobalDevice: int, data: schemas.GlobalDeviceUpdate):
-    device = get_global_device_by_id(db, id_GlobalDevice)
+def update_global_device_by_serial(db: Session, serial_number: int, data: schemas.GlobalDeviceUpdate):
+    device = get_global_device_by_serial(db, serial_number)
     if device:
         for field, value in data.dict().items():
             setattr(device, field, value)
@@ -110,6 +110,7 @@ def update_global_device(db: Session, id_GlobalDevice: int, data: schemas.Global
         db.refresh(device)
         return device
     return None
+
 
 
 

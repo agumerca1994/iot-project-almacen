@@ -61,7 +61,7 @@ class GlobalDevice(Base):
 
     
     id_GlobalDevice = Column(Integer, Identity(always=True), primary_key=True, index=True)
-    serial_number = Column(Integer, nullable=False)
+    serial_number = Column(String, nullable=False)
     password = Column(String, nullable=False)
     estado = Column(String, nullable=False)
     firmware_version = Column(String, nullable=True)
@@ -70,3 +70,4 @@ class GlobalDevice(Base):
     mac_address = Column(String, nullable=True)
     wifi_ssid = Column(String, nullable=True)
     rssi = Column(Integer, nullable=True)
+    user_assignament = Column(String, nullable=True)  # ✅ NUEVO CAMPO

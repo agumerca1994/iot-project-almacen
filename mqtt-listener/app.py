@@ -3,9 +3,11 @@ import time
 import requests
 import paho.mqtt.client as mqtt
 
+# Configuración del broker MQTT y endpoints
 MQTT_BROKER = "emqx"
 MQTT_PORT = 1883
 MQTT_TOPIC = "iot/lecturas"
+MQTT_TOPIC_GLOBAL_DEVICE = "iot/dispositivos"
 API_BASE_URL = "http://backend:8000"
 
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -13,6 +15,8 @@ def on_connect(client, userdata, flags, rc, properties=None):
         print("✅ Conectado al broker MQTT")
         client.subscribe(MQTT_TOPIC)
         print(f"📡 Suscripto al topic {MQTT_TOPIC}")
+        client.subscribe(MQTT_TOPIC_GLOBAL_DEVICE)
+        print(f"📡 Suscripto al topic {MQTT_TOPIC_GLOBAL_DEVICE}")
     else:
         print(f"❌ Falló la conexión al broker, código: {rc}")
 
@@ -21,25 +25,36 @@ def on_message(client, userdata, msg):
         print(f"📥 Mensaje recibido bruto en {msg.topic}: {msg.payload.decode()}")
         payload = json.loads(msg.payload.decode())
 
-        product_id = payload.get("product_id")
-        measured_value = payload.get("measured_value")
+        if msg.topic == MQTT_TOPIC:
+            product_id = payload.get("product_id")
+            measured_value = payload.get("measured_value")
 
-        if not product_id or measured_value is None:
-            print("❌ Payload incompleto:", payload)
-            return
+            if not product_id or measured_value is None:
+                print("❌ Payload incompleto:", payload)
+                return
 
-        print(f"🔄 Actualizando stock → product_id={product_id}, quantity={measured_value}")
+            print(f"🔄 Actualizando stock → product_id={product_id}, quantity={measured_value}")
+            post_payload = {
+                "product_id": product_id,
+                "quantity": measured_value
+            }
+            response = requests.post(f"{API_BASE_URL}/alacena", json=post_payload)
 
-        post_payload = {
-            "product_id": product_id,
-            "quantity": measured_value
-        }
-        response = requests.post(f"{API_BASE_URL}/alacena", json=post_payload)
+            if response.status_code == 200:
+                print(f"✅ Stock actualizado correctamente para product_id={product_id}")
+            else:
+                print(f"❌ Error al actualizar alacena: {response.status_code} - {response.text}")
 
-        if response.status_code == 200:
-            print(f"✅ Stock actualizado correctamente para product_id={product_id}")
-        else:
-            print(f"❌ Error al actualizar alacena: {response.status_code} - {response.text}")
+        elif msg.topic == MQTT_TOPIC_GLOBAL_DEVICE:
+            print("🔄 Registrando nuevo dispositivo global...")
+
+            response = requests.post(f"{API_BASE_URL}/global-devices", json=payload)
+
+            if response.status_code == 200:
+                print("✅ Dispositivo global registrado correctamente")
+            else:
+                print(f"❌ Error al registrar global_device: {response.status_code} - {response.text}")
+                print("📦 Payload enviado:", payload)
 
     except Exception as e:
         print("❌ Error procesando mensaje:", e)

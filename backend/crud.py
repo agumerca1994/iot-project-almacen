@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models import Usuario, Producto, Device, PantryContent
+from models import Usuario, Producto, Device, PantryContent, GlobalDevice
 import schemas
 from datetime import datetime
 from websocket_local import notify_new_device  # ✅ asegúrate que el path sea correcto
@@ -79,6 +79,39 @@ async def create_device(db: Session, device: schemas.DeviceCreate):
 
     return db_device
 
+# ---------------------- DISPOSITIVOS GLOBALES ----------------------
+def create_global_device(db: Session, device: schemas.GlobalDeviceCreate):
+    db_device = GlobalDevice(**device.dict())
+    db.add(db_device)
+    db.commit()
+    db.refresh(db_device)
+    return db_device
+
+def get_global_device_by_id(db: Session, id_GlobalDevice: int):
+    return db.query(GlobalDevice).filter(GlobalDevice.id_GlobalDevice == id_GlobalDevice).first()
+
+def get_global_device_by_serial(db: Session, serial: int):
+    return db.query(GlobalDevice).filter(GlobalDevice.serial_number == serial).first()
+
+def delete_global_device(db: Session, id_GlobalDevice: int):
+    device = get_global_device_by_id(db, id_GlobalDevice)
+    if device:
+        db.delete(device)
+        db.commit()
+        return True
+    return False
+
+def update_global_device(db: Session, id_GlobalDevice: int, data: schemas.GlobalDeviceUpdate):
+    device = get_global_device_by_id(db, id_GlobalDevice)
+    if device:
+        for field, value in data.dict().items():
+            setattr(device, field, value)
+        db.commit()
+        db.refresh(device)
+        return device
+    return None
+
+
 
 # ---------------------- ALACENA / STOCK ----------------------
 
@@ -98,6 +131,9 @@ async def create_alacena(db: Session, item: schemas.PantryContentCreate):
         "product_id": db_item.product_id,
         "quantity": db_item.quantity
     })
+
+
+
 
     return db_item
 

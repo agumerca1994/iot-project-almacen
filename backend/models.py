@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Identity  
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -55,3 +55,18 @@ class PantryContent(Base):
     quantity = Column(Integer, nullable=False)
 
     producto = relationship("Producto", back_populates="stock")
+
+class GlobalDevice(Base):
+    __tablename__ = "global_devices"
+
+    
+    id_GlobalDevice = Column(Integer, Identity(always=True), primary_key=True, index=True)
+    serial_number = Column(Integer, nullable=False)
+    password = Column(String, nullable=False)
+    estado = Column(String, nullable=False)
+    firmware_version = Column(String, nullable=True)
+    uptime_seconds = Column(Integer, nullable=True)
+    ip_address = Column(String, nullable=True)
+    mac_address = Column(String, nullable=True)
+    wifi_ssid = Column(String, nullable=True)
+    rssi = Column(Integer, nullable=True)

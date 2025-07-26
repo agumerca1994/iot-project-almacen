@@ -71,3 +71,28 @@ class PantryContent(PantryContentBase):
 
     class Config:
         from_attributes = True
+
+# ---------- GLOBAL DEVICES ----------
+
+class GlobalDeviceBase(BaseModel):
+    serial_number: int
+    password: str
+    estado: str
+    firmware_version: str
+    uptime_seconds: int
+    ip_address: str
+    mac_address: str
+    wifi_ssid: str
+    rssi: int
+
+class GlobalDeviceCreate(GlobalDeviceBase):
+    pass  # No se incluye el ID aquí
+
+class GlobalDeviceUpdate(GlobalDeviceBase):
+    pass
+
+class GlobalDevice(GlobalDeviceBase):
+    id_GlobalDevice: int
+
+    class Config:
+        from_attributes = True

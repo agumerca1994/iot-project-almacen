@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 from routes import productos, alacena, devices, usuarios
 from websocket_local import websocket_endpoint  # ✅ aseguramos que sea el nombre correcto
+from routes import global_devices  # <- importar tu nuevo router
 
 # Crear todas las tablas si no existen
 Base.metadata.create_all(bind=engine)
@@ -31,8 +32,10 @@ app.include_router(usuarios.router)
 app.include_router(productos.router)
 app.include_router(devices.router)
 app.include_router(alacena.router)
+app.include_router(global_devices.router)  # <- incluir en FastAPI
 
-# ✅ Ruta WebSocket definida correctamente con tipado explícito
+# ✅ Ruta We
+# Socket definida correctamente con tipado explícito
 @app.websocket("/ws/devices")
 async def websocket_devices(websocket: WebSocket):
     await websocket_endpoint(websocket)

@@ -10,14 +10,15 @@ const char* mqtt_server = "192.168.100.119";
 const int mqtt_port = 1883;
 const char* mqtt_topic_datos = "iot/lecturas";
 const char* mqtt_topic_registro = "iot-dispositivos";
+const char* mqtt_topic_actualizacion = "iot/global-device-update";
 
 unsigned long lastSend = 0;
 const unsigned long interval = 15000;
 
 String serial;
 String estado = "libre";
-int product_id = -1;               // Valor inválido por defecto
-String user_assignament = "";      // Nuevo: sin usuario asignado
+int product_id = -1;
+String user_assignament = "";
 
 // ======================== CALLBACK MQTT ========================
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -56,21 +57,50 @@ void callback(char* topic, byte* payload, unsigned int length) {
     StaticJsonDocument<256> doc;
     DeserializationError error = deserializeJson(doc, mensaje);
     if (!error) {
+      bool actualizado = false;
+
       if (doc.containsKey("product_id")) {
         product_id = doc["product_id"];
         Serial.print("🆕 product_id actualizado: ");
         Serial.println(product_id);
+        actualizado = true;
       }
       if (doc.containsKey("estado")) {
         estado = doc["estado"].as<String>();
         Serial.print("🆕 estado actualizado: ");
         Serial.println(estado);
+        actualizado = true;
       }
       if (doc.containsKey("user_id")) {
         user_assignament = doc["user_id"].as<String>();
         Serial.print("🧑 user_id asignado: ");
         Serial.println(user_assignament);
+        actualizado = true;
       }
+
+      if (actualizado) {
+        StaticJsonDocument<256> docOut;
+        String password = "clave" + serial;
+
+        docOut["serial_number"] = serial;
+        docOut["password"] = password;
+        docOut["estado"] = estado;
+        docOut["firmware_version"] = "v1.0.0";
+        docOut["uptime_seconds"] = millis() / 1000;
+        docOut["ip_address"] = WiFi.localIP().toString();
+        docOut["mac_address"] = WiFi.macAddress();
+        docOut["wifi_ssid"] = WiFi.SSID();
+        docOut["rssi"] = WiFi.RSSI();
+        docOut["user_assignament"] = user_assignament;
+
+        char outPayload[256];
+        serializeJson(docOut, outPayload);
+
+        client.publish(mqtt_topic_actualizacion, outPayload);
+        Serial.println("🔁 Dispositivo actualizado publicado:");
+        Serial.println(outPayload);
+      }
+
     } else {
       Serial.println("❌ Error al parsear JSON");
     }

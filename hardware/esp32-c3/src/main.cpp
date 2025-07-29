@@ -1,7 +1,14 @@
+// Este archivo contiene la lógica principal para el dispositivo ESP8266/ESP32.
+// Se ha extendido para persistir en memoria no volátil la asignación
+// (product_id, estado y user_id) de modo que el dispositivo permanezca asignado
+// hasta que reciba un comando `reset_all`. Se utiliza la librería EEPROM para
+// almacenar estas variables en flash.
+
 #include <ESP8266WiFi.h>
 #include <WiFiManager.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include <EEPROM.h>
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -15,10 +22,41 @@ const char* mqtt_topic_actualizacion = "iot/global-device-update";
 unsigned long lastSend = 0;
 const unsigned long interval = 15000;
 
+// Variables globales para el estado del dispositivo
 String serial;
 String estado = "libre";
 int product_id = -1;
 int user_assig = -1;
+
+// Definiciones para almacenar los datos de asignación en EEPROM.
+// Reservamos espacio para dos enteros y un byte (estado asignado o libre).
+// product_id:      posición 0-3
+// user_assig:      posición 4-7
+// estado (byte):   posición 8
+const size_t EEPROM_SIZE = sizeof(int) * 2 + sizeof(byte);
+const int addrProductId = 0;
+const int addrUserId    = addrProductId + sizeof(int);
+const int addrEstado    = addrUserId + sizeof(int);
+
+// Guarda en EEPROM los valores actuales de product_id, user_assig y estado
+void saveAssignment() {
+  byte estadoByte = (estado == "asignado") ? 1 : 0;
+  EEPROM.put(addrProductId, product_id);
+  EEPROM.put(addrUserId,    user_assig);
+  EEPROM.put(addrEstado,    estadoByte);
+  EEPROM.commit();
+}
+
+// Limpia la asignación en memoria RAM y en EEPROM
+void clearAssignment() {
+  product_id = -1;
+  user_assig = -1;
+  estado = "libre";
+  EEPROM.put(addrProductId, product_id);
+  EEPROM.put(addrUserId,    user_assig);
+  EEPROM.put(addrEstado,    (byte)0);
+  EEPROM.commit();
+}
 
 // ======================== CALLBACK MQTT ========================
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -33,7 +71,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println(mensaje);
 
   String topicComando = "iot/comandos-" + serial;
-  String topicDatos = "iot/recepcion-datos-" + serial;
+  String topicDatos   = "iot/recepcion-datos-" + serial;
 
   if (String(topic) == topicComando) {
     if (mensaje == "reset_wifi") {
@@ -46,8 +84,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
       Serial.println("🔁 Reset total: WiFi + Product ID...");
       WiFiManager wm;
       wm.resetSettings();
-      product_id = -1;
-      user_assig = -1;
+      // Además de borrar las credenciales WiFi, limpiamos la asignación persistida
+      clearAssignment();
       delay(1000);
       ESP.restart();
     }
@@ -79,21 +117,25 @@ void callback(char* topic, byte* payload, unsigned int length) {
       }
 
       if (actualizado) {
+        // Persistimos la nueva asignación para que sobreviva a los reinicios
+        saveAssignment();
+
         StaticJsonDocument<512> docOut;
         String password = "clave" + serial;
 
-        docOut["sn"] = serial;
+        docOut["sn"]      = serial;
         docOut["password"] = password;
-        docOut["estado"] = estado;
+        docOut["estado"]  = estado;
         docOut["vfirmware"] = "v1.0.0";
-        docOut["uptime"] = millis() / 1000;
-        docOut["ipadd"] = WiFi.localIP().toString();
-        docOut["macadd"] = WiFi.macAddress();
-        docOut["ssid"] = WiFi.SSID();
-        docOut["rssi"] = WiFi.RSSI();
+        docOut["uptime"]  = millis() / 1000;
+        docOut["ipadd"]   = WiFi.localIP().toString();
+        docOut["macadd"]  = WiFi.macAddress();
+        docOut["ssid"]   = WiFi.SSID();
+        docOut["rssi"]   = WiFi.RSSI();
 
         if (user_assig != -1) {
-          docOut["user_id"] = String(user_assig);  // Se envía como string para evitar error
+          // Se envía como string para evitar error en la API
+          docOut["user_id"] = String(user_assig);
         }
 
         char outPayload[512];
@@ -117,15 +159,15 @@ void publicarInfoDispositivo() {
 
   String password = "clave" + serial;
 
-  doc["sn"] = serial;
+  doc["sn"]       = serial;
   doc["password"] = password;
-  doc["estado"] = estado;
+  doc["estado"]   = estado;
   doc["vfirmware"] = "v1.0.0";
-  doc["uptime"] = millis() / 1000;
-  doc["ipadd"] = WiFi.localIP().toString();
-  doc["macadd"] = WiFi.macAddress();
-  doc["ssid"] = WiFi.SSID();
-  doc["rssi"] = WiFi.RSSI();
+  doc["uptime"]   = millis() / 1000;
+  doc["ipadd"]    = WiFi.localIP().toString();
+  doc["macadd"]   = WiFi.macAddress();
+  doc["ssid"]    = WiFi.SSID();
+  doc["rssi"]    = WiFi.RSSI();
 
   if (user_assig != -1) {
     doc["user_id"] = String(user_assig);  // también como string aquí
@@ -175,12 +217,33 @@ void setup() {
   serial = String(ESP.getChipId());
   String password = "clave" + serial;
 
+  // Inicializamos EEPROM y recuperamos posibles valores almacenados
+  EEPROM.begin(EEPROM_SIZE);
+  // Leer product_id y user_assig almacenados
+  EEPROM.get(addrProductId, product_id);
+  EEPROM.get(addrUserId,    user_assig);
+  byte estadoByte;
+  EEPROM.get(addrEstado,    estadoByte);
+  // Determinar el estado a partir del byte
+  if (estadoByte == 1) {
+    estado = "asignado";
+  } else {
+    estado = "libre";
+  }
+  // Si product_id está almacenado y el estado es asignado, permanecemos asignados.
+  // Si product_id es -1, consideramos al dispositivo libre.
+  if (product_id == -1) {
+    estado = "libre";
+    user_assig = -1;
+  }
+
   WiFiManager wm;
 
-  String html_sn = "<p><strong>Serial Number:</strong> " + serial + "</p>";
-  String html_pw = "<p><strong>Password:</strong> " + password + "</p>";
+  // Construimos parámetros informativos para la página de configuración WiFi
+  String html_sn    = "<p><strong>Serial Number:</strong> " + serial + "</p>";
+  String html_pw    = "<p><strong>Password:</strong> " + password + "</p>";
   String html_estado = "<p><strong>Estado:</strong> " + estado + "</p>";
-  String html_user = "<p><strong>User ID:</strong> " + (user_assig == -1 ? "-" : String(user_assig)) + "</p>";
+  String html_user   = "<p><strong>User ID:</strong> " + (user_assig == -1 ? "-" : String(user_assig)) + "</p>";
 
   WiFiManagerParameter info_sn(html_sn.c_str());
   WiFiManagerParameter info_pw(html_pw.c_str());
@@ -225,7 +288,7 @@ void loop() {
     Serial.println(valor);
 
     StaticJsonDocument<128> doc;
-    doc["product_id"] = product_id;
+    doc["product_id"]    = product_id;
     doc["measured_value"] = valor;
 
     char payload[128];

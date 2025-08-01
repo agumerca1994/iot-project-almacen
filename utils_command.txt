@@ -1,5 +1,5 @@
 Acceso a BD desde terminal
-docker exec -it 9c7dc9f29bc4d55342cadc4cdb42be7179a90790f09c4f862be51729a285a5f9 psql -U postgres -d iotdb
+docker exec -it ba61ca6cf86a4ca2d18908f87c14bde1f4332f853b30bb0c2ee1a3a9a0e857e2 psql -U postgres -d iotdb
 \dt
 DROP TABLE global_devices;
 \q

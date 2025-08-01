@@ -53,7 +53,11 @@ def get_device_by_id(db: Session, device_id: int):
 
 
 async def create_device(db: Session, device: schemas.DeviceCreate):
-    db_device = Device(**device.dict())
+
+    # Forzar estado 'asignado' al crear el dispositivo
+    device_data = device.dict()
+    device_data["estado"] = "asignado"
+    db_device = Device(**device_data)
 
     # Buscar el nombre del producto si hay producto_id
     if device.producto_id:
@@ -76,6 +80,32 @@ async def create_device(db: Session, device: schemas.DeviceCreate):
         "usuario_id": db_device.usuario_id,
         "fecha_registro": db_device.fecha_registro.isoformat()
     })
+    
+    # --- Validar existencia en global_devices antes de notificar ---
+    from notification_models import Topic
+    from notification_utils import log_and_publish_notification
+    import logging
+    global_device = db.query(GlobalDevice).filter(GlobalDevice.serial_number == db_device.serial_number).first()
+    if global_device:
+        topic_obj = db.query(Topic).filter(Topic.id == 1).first()
+        logging.warning(f"[NOTIFY] Intentando notificar hardware tras asignación. topic_obj={topic_obj}")
+        if topic_obj:
+            topic_name = topic_obj.nombre
+            if "{serial_number}" in topic_name:
+                topic_name = topic_name.format(serial_number=db_device.serial_number)
+            elif topic_name.endswith('-'):
+                topic_name = f"{topic_name}{db_device.serial_number}"
+            payload = {
+                "product_id": db_device.producto_id,
+                "estado": db_device.estado,
+                "user_id": db_device.usuario_id
+            }
+            logging.warning(f"[NOTIFY] Publicando en topic: {topic_name} con payload: {payload}")
+            log_and_publish_notification(db, topic_name, payload)
+        else:
+            logging.warning("[NOTIFY] No se encontró topic con id=1 para notificar al hardware.")
+    else:
+        logging.warning(f"[NOTIFY] No se encontró global_device con serial_number={db_device.serial_number}, no se notificará por MQTT.")
 
     return db_device
 
